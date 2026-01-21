@@ -11,6 +11,7 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from '../users/dtos/register.dto';
 import { LoginDto } from '../users/dtos/login.dto';
 import { ChangePasswordDto } from '../users/dtos/change-password.dto';
+import { AuthorizeDto } from './dtos/authorize.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserDocument } from '../users/schemas/user.schema';
@@ -43,6 +44,14 @@ export class AuthController {
       changePasswordDto.current_password,
       changePasswordDto.new_password,
     );
+  }
+
+  @Post('authorize')
+  async authorize(
+    @Body() authorizeDto: AuthorizeDto,
+  ): Promise<{ token: string }> {
+    const token = await this.authService.authorize(authorizeDto);
+    return { token };
   }
 
   @Get('me')

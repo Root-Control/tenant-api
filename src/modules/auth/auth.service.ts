@@ -5,9 +5,17 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { HttpService } from '@nestjs/axios';
+import { firstValueFrom } from 'rxjs';
+import * as jwt from 'jsonwebtoken';
 import { UsersService } from '../users/users.service';
-import { UserDocument, MigrationStatus, ProviderName } from '../users/schemas/user.schema';
+import {
+  UserDocument,
+  MigrationStatus,
+  ProviderName,
+} from '../users/schemas/user.schema';
 import { JwtPayload } from '../../common/strategies/jwt.strategy';
+import { AuthorizeDto } from './dtos/authorize.dto';
 
 @Injectable()
 export class AuthService {
@@ -15,6 +23,7 @@ export class AuthService {
     private usersService: UsersService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private httpService: HttpService,
   ) {}
 
   async register(email: string, password: string) {
@@ -98,10 +107,34 @@ export class AuthService {
     return this.jwtService.signAsync(payload);
   }
 
+  async authorize(authorizeDto: AuthorizeDto): Promise<string> {
+    try {
+      // Llamar al endpoint externo
+      const response = await firstValueFrom(
+        this.httpService.post('http://localhost:9000/api/authorize', {
+          code: authorizeDto.code,
+          code_verifier: authorizeDto.code_verifier,
+        }),
+      );
+
+      // Convertir la respuesta en JWT token
+      // Usamos la respuesta completa como payload del JWT
+      const payload = response.data;
+
+      // Generar JWT token usando el secreto configurado
+      const secret =
+        this.configService.get<string>('JWT_SECRET') || 'default-secret-key';
+      const token = jwt.sign(payload, secret, { expiresIn: '1h' });
+
+      return token;
+    } catch (error) {
+      throw new Error(`Error al autorizar: ${error.message}`);
+    }
+  }
+
   private sanitizeUser(user: UserDocument) {
     const userObj = user.toObject();
     delete userObj.password_hash;
     return userObj;
   }
 }
-
